@@ -57,13 +57,14 @@
 
 ;;; Session management
 
-(defun nnttrss-post-request (address &optional property &rest content)
+(defun nnttrss-post-request (address property &rest content)
   "Post urlencoded form data to ADDRESS. PROPERTY is keyword
-  potentially in the response. CONTENT must be a data structure
-  that `json-encode' knows how to encode as a JSON object.
+  potentially in the response or nil. CONTENT must be a data
+  structure that `json-encode' knows how to encode as a JSON
+  object.
 
 Returns the JSON response as a plist or, optionally, the PROPERTY
-in the plist if the response status is 0, nil otherwise."
+in the plist, if the response status is 0, nil otherwise."
   (let ((url-request-method "POST")
 	(url-request-data (json-encode content))
 	(json-object-type 'plist)
@@ -75,9 +76,7 @@ in the plist if the response status is 0, nil otherwise."
 	     (status (plist-get response :status))
 	     (content (plist-get response :content)))
 	(if (= status 0)
-	    (if (plist-member content property)
-		(plist-get content property)
-	      content)
+	    (or (plist-get content property) content)
 	  (nnheader-report 'nnttrss (plist-get content :error)))))))
 
 (defun nnttrss-login (address user password)
@@ -94,15 +93,15 @@ credentials. Returns a session id string or nil."
   (nnttrss-post-request address
 			:status
 			:op "logout"
-			:sid session-id))
+			:sid session-id)
 
-(defun nnttrss-logged-in-p (address session-id)
-  "Return t if there is a valid session at ADDRESS with
+  (defun nnttrss-logged-in-p (address session-id)
+    "Return t if there is a valid session at ADDRESS with
   SESSION-ID, false otherwise."
-  (nnttrss-post-request address
-			:status
-			:op "isLoggedIn"
-			:sid session-id))
+    (nnttrss-post-request address
+			  :status
+			  :op "isLoggedIn"
+			  :sid session-id)))
 
 (defun nnttrss-api-level (address session-id)
   "Return an integer corresponding to the API level at ADDRESS
