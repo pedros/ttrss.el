@@ -20,6 +20,10 @@
 (defvar nnttrss-session-id nil
   "Current session id, if any, set after successful login.")
 
+(defvar nnttrss-api-level nil
+  "API version level, increased with each API functionality
+  change.")
+
 
 ;;; Session management
 
@@ -70,6 +74,13 @@ credentials. Returns a session id string or nil."
 			address
 			:status))
 
+(defun nnttrss-api-level (address session-id)
+  "Return an integer corresponding to the API level at ADDRESS
+  using SID credentials."
+  (nnttrss-post-request `(:op "getApiLevel"
+			      :sid ,session-id)
+			address
+			:level))
 
 
 
