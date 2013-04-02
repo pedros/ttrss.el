@@ -93,15 +93,15 @@ credentials. Returns a session id string or nil."
   (nnttrss-post-request address
 			:status
 			:op "logout"
-			:sid session-id)
+			:sid session-id))
 
-  (defun nnttrss-logged-in-p (address session-id)
-    "Return t if there is a valid session at ADDRESS with
+(defun nnttrss-logged-in-p (address session-id)
+  "Return t if there is a valid session at ADDRESS with
   SESSION-ID, false otherwise."
-    (nnttrss-post-request address
-			  :status
-			  :op "isLoggedIn"
-			  :sid session-id)))
+  (nnttrss-post-request address
+			:status
+			:op "isLoggedIn"
+			:sid session-id))
 
 (defun nnttrss-api-level (address session-id)
   "Return an integer corresponding to the API level at ADDRESS
