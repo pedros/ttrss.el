@@ -24,6 +24,9 @@
   "API version level, increased with each API functionality
   change.")
 
+(defvar nnttrss-server-version nil
+  "Server version number.")
+
 
 ;;; Session management
 
@@ -76,14 +79,23 @@ credentials. Returns a session id string or nil."
 
 (defun nnttrss-api-level (address session-id)
   "Return an integer corresponding to the API level at ADDRESS
-  using SID credentials."
+  using SESSION-ID credentials."
   (nnttrss-post-request `(:op "getApiLevel"
 			      :sid ,session-id)
 			address
 			:level))
+
+(defun nnttrss-server-version (address session-id)
+  "Return a string corresponding to the server version at ADDRESS
+  using SESSION-ID credentials."
+  (nnttrss-post-request `(:op "getVersion"
+			      :sid ,session-id)
+			address
+			:version))
 
 
 
 (gnus-declare-backend "nnttrss" 'address 'prompt-address)
 
 (provide 'nnttrss)
+;;; nnttrss.el ends here
