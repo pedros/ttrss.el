@@ -120,6 +120,49 @@ credentials. Returns a session id string or nil."
 			:sid session-id))
 
 
+;;; Server statistics
+
+(defun nnttrss-get-unread (address session-id)
+  "Return number of unread artibles at ADDRESS using SESSION-ID
+  credentials."
+  (nnttrss-post-request nnttrss-address
+			:unread
+			:op "getUnread"
+			:sid session-id))
+
+(defun nnttrss-get-counters (address session-id)
+  "Return a vector of plists corresponding to feeds, labels,
+categories, or tags at ADDRESS using SESSION-ID credentials.
+Each plist has the keywords :counter and :id and,
+possibly, :has_img, :updated, and :kind."
+  (nnttrss-post-request nnttrss-address
+			nil
+			:op "getCounters"
+			:sid session-id))
+
+(defun nnttrss-get-feeds (address session-id &rest params)
+  "Return a vector of plists corresponding to feeds at ADDRESS
+ using SESSION-ID credentials. PARAMS is any number of the
+ following key-value pairs:
+
+:cat_id integer
+:unread_only boolean
+:limit integer
+:offset integer
+:include_nested boolean
+
+ Each plist has the keywords :last_updated, :cat_id, :order_id,
+:feed_url, :unread, :title, :id, and :icon."
+  (nnttrss-post-request nnttrss-address
+			nil
+			:op "getFeeds"
+			:sid session-id
+			params))	; FIXME: need to unwrap params
+					; before handing them to
+					; nnttrss-post-request
+
+
+
 
 (gnus-declare-backend "nnttrss" 'address 'prompt-address)
 
