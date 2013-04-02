@@ -59,9 +59,9 @@
 
 (defun nnttrss-post-request (address property &rest content)
   "Post urlencoded form data to ADDRESS. PROPERTY is keyword
-  potentially in the response or nil. CONTENT must be a data
-  structure that `json-encode' knows how to encode as a JSON
-  object.
+potentially in the response or nil. CONTENT must be a data
+structure that `json-encode' knows how to encode as a JSON
+object.
 
 Returns the JSON response as a plist or, optionally, the PROPERTY
 in the plist, if the response status is 0, nil otherwise."
@@ -97,7 +97,7 @@ credentials. Returns a session id string or nil."
 
 (defun nnttrss-logged-in-p (address session-id)
   "Return t if there is a valid session at ADDRESS with
-  SESSION-ID, false otherwise."
+SESSION-ID, false otherwise."
   (nnttrss-post-request address
 			:status
 			:op "isLoggedIn"
@@ -105,7 +105,7 @@ credentials. Returns a session id string or nil."
 
 (defun nnttrss-api-level (address session-id)
   "Return an integer corresponding to the API level at ADDRESS
-  using SESSION-ID credentials."
+using SESSION-ID credentials."
   (nnttrss-post-request address
 			:level
 			:op "getApiLevel"
@@ -124,7 +124,7 @@ credentials. Returns a session id string or nil."
 
 (defun nnttrss-get-unread (address session-id)
   "Return number of unread artibles at ADDRESS using SESSION-ID
-  credentials."
+credentials."
   (nnttrss-post-request address
 			:unread
 			:op "getUnread"
@@ -142,8 +142,8 @@ possibly, :has_img, :updated, and :kind."
 
 (defun nnttrss-get-feeds (address session-id &rest params)
   "Return a vector of plists corresponding to feeds at ADDRESS
- using SESSION-ID credentials. PARAMS is any number of the
- following key-value pairs:
+using SESSION-ID credentials. PARAMS is any number of the
+following key-value pairs:
 
 :cat_id integer
 :unread_only boolean
