@@ -153,14 +153,12 @@ possibly, :has_img, :updated, and :kind."
 
  Each plist has the keywords :last_updated, :cat_id, :order_id,
 :feed_url, :unread, :title, :id, and :icon."
-  (nnttrss-post-request nnttrss-address
-			nil
-			:op "getFeeds"
-			:sid session-id
-			params))	; FIXME: need to unwrap params
-					; before handing them to
-					; nnttrss-post-request
-
+  (apply 'nnttrss-post-request
+	 address
+	 nil
+	 :op "getFeeds"
+	 :sid session-id
+	 params))
 
 
 
