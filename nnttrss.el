@@ -30,10 +30,10 @@
 
 ;;; Session management
 
-(defun nnttrss-post-request (content address &optional property)
-  "POST CONTENT to ADDRESS as urlencoded form data. CONTENT must
-be a data structure that `json-encode' knows how to encode as a
-JSON object.
+(defun nnttrss-post-request (address &optional property &rest content)
+  "Post urlencoded form data to ADDRESS. PROPERTY is keyword
+  potentially in the response. CONTENT must be a data structure
+  that `json-encode' knows how to encode as a JSON object.
 
 Returns the JSON response as a plist or, optionally, the PROPERTY
 in the plist if the response status is 0, nil otherwise."
@@ -56,42 +56,42 @@ in the plist if the response status is 0, nil otherwise."
 (defun nnttrss-login (address user password)
   "Login to the server at ADDRESS using USER and PASSWORD
 credentials. Returns a session id string or nil."
-  (nnttrss-post-request `(:op "login"
-			      :user ,user
-			      :password ,password)
-			address
-			:session_id))
+  (nnttrss-post-request address
+			:session_id
+			:op "login"
+			:user user
+			:password password))
 
 (defun nnttrss-logout (address session-id)
   "Logout of the server at ADDRESS using SESSION-ID credentials."
-  (nnttrss-post-request `(:op "logout"
-			      :sid ,session-id)
-			address)
-  nil)
+  (nnttrss-post-request address
+			:status
+			:op "logout"
+			:sid session-id))
 
 (defun nnttrss-logged-in-p (address session-id)
   "Return t if there is a valid session at ADDRESS with
   SESSION-ID, false otherwise."
-  (nnttrss-post-request `(:op "isLoggedIn"
-			      :sid ,session-id)
-			address
-			:status))
+  (nnttrss-post-request address
+			:status
+			:op "isLoggedIn"
+			:sid session-id))
 
 (defun nnttrss-api-level (address session-id)
   "Return an integer corresponding to the API level at ADDRESS
   using SESSION-ID credentials."
-  (nnttrss-post-request `(:op "getApiLevel"
-			      :sid ,session-id)
-			address
-			:level))
+  (nnttrss-post-request address
+			:level
+			:op "getApiLevel"
+			:sid session-id))
 
 (defun nnttrss-server-version (address session-id)
   "Return a string corresponding to the server version at ADDRESS
   using SESSION-ID credentials."
-  (nnttrss-post-request `(:op "getVersion"
-			      :sid ,session-id)
-			address
-			:version))
+  (nnttrss-post-request address
+			:version
+			:op "getVersion"
+			:sid session-id))
 
 
 
