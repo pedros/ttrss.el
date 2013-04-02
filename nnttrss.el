@@ -125,7 +125,7 @@ credentials. Returns a session id string or nil."
 (defun nnttrss-get-unread (address session-id)
   "Return number of unread artibles at ADDRESS using SESSION-ID
   credentials."
-  (nnttrss-post-request nnttrss-address
+  (nnttrss-post-request address
 			:unread
 			:op "getUnread"
 			:sid session-id))
@@ -135,7 +135,7 @@ credentials. Returns a session id string or nil."
 categories, or tags at ADDRESS using SESSION-ID credentials.
 Each plist has the keywords :counter and :id and,
 possibly, :has_img, :updated, and :kind."
-  (nnttrss-post-request nnttrss-address
+  (nnttrss-post-request address
 			nil
 			:op "getCounters"
 			:sid session-id))
