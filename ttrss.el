@@ -45,20 +45,18 @@
   "Current session id, if any, set after successful login.")
 
 (defvar ttrss-api-level nil
-  "API version level, increased with each API functionality
-  change.")
+  "API version level, increased with each API functionality change.")
 
 (defvar ttrss-server-version nil
   "Server version number.")
 
 
-;;; Session management
+;;; Utilities
 
 (defun ttrss-post-request (address property &rest content)
-  "Post urlencoded form data to ADDRESS. PROPERTY is keyword
-potentially in the response or nil. CONTENT must be a data
-structure that `json-encode' knows how to encode as a JSON
-object.
+  "Post to ADDRESS and possibly retrieve PROPERTY from the response to CONTENT.
+CONTENT must be a data structure that `json-encode' knows how to
+encode as a JSON object.
 
 Returns the JSON response as a plist or, optionally, the PROPERTY
 in the plist, if the response status is 0, nil otherwise."
@@ -79,45 +77,48 @@ in the plist, if the response status is 0, nil otherwise."
 				   " "))
 	  (or (plist-get content property) content))))))
 
+
+;;; Session management
+
 (defun ttrss-login (address user password)
-  "Login to the server at ADDRESS using USER and PASSWORD
-credentials. Returns a session id string or nil."
+  "Login to the server at ADDRESS using USER and PASSWORD.
+Returns a session id string or nil."
   (ttrss-post-request address
 		      :session_id
 		      :op "login"
 		      :user user
 		      :password password))
 
-(defun ttrss-logout (address session-id)
-  "Logout of the server at ADDRESS using SESSION-ID credentials."
+(defun ttrss-logout (address sid)
+  "Logout of the server at ADDRESS using SID."
   (ttrss-post-request address
 		      :status
 		      :op "logout"
-		      :sid session-id))
+		      :sid sid))
 
-(defun ttrss-logged-in-p (address session-id)
-  "Return t if there is a valid session at ADDRESS with
-SESSION-ID, false otherwise."
+(defun ttrss-logged-in-p (address sid)
+  "Return t if there is a valid session at ADDRESS with SID."
   (ttrss-post-request address
 		      :status
 		      :op "isLoggedIn"
-		      :sid session-id))
+		      :sid sid))
 
-(defun ttrss-api-level (address session-id)
-  "Return an integer corresponding to the API level at ADDRESS
-using SESSION-ID credentials."
+
+;;; Server statistics
+
+(defun ttrss-api-level (address sid)
+  "Return the API level at ADDRESS using SID."
   (ttrss-post-request address
 		      :level
 		      :op "getApiLevel"
-		      :sid session-id))
+		      :sid sid))
 
-(defun ttrss-server-version (address session-id)
-  "Return a string corresponding to the server version at ADDRESS
-  using SESSION-ID credentials."
+(defun ttrss-server-version (address sid)
+  "Return the server version at ADDRESS using SID."
   (ttrss-post-request address
 		      :version
 		      :op "getVersion"
-		      :sid session-id))
+		      :sid sid))
 
 
 ;;; Server statistics
@@ -130,26 +131,23 @@ credentials."
 		      :op "getUnread"
 		      :sid session-id))
 
-(defun ttrss-get-counters (address session-id)
-  "Return a vector of plists corresponding to feeds, labels,
-categories, or tags at ADDRESS using SESSION-ID credentials.
-Each plist has the keywords :counter and :id and,
-possibly, :has_img, :updated, and :kind."
+ :has_img
+ :updated
+ :kind"
   (ttrss-post-request address
 		      nil
 		      :op "getCounters"
-		      :sid session-id))
+		      :sid sid))
 
-(defun ttrss-get-feeds (address session-id &rest params)
-  "Return a vector of plists corresponding to feeds at ADDRESS
-using SESSION-ID credentials. PARAMS is any number of the
-following key-value pairs:
+(defun ttrss-get-feeds (address sid &rest params)
+  "Return a vector of plists of feeds at ADDRESS using SID.
+PARAMS is any number of the following key-value pairs:
 
  :cat_id          integer  return feeds under category cat_id
  :unread_only     boolean  only return feeds which have unread articles
  :limit           integer  limit amount of feeds returned to this value
  :offset          integer  skip this amount of feeds first
- :include_nested  boolean  include child categories (as Feed objects with is_cat set)
+ :include_nested  boolean  include child categories
 
 Special feed IDs are as follows:
 
@@ -160,7 +158,7 @@ Special feed IDs are as follows:
   0  archived
   IDs < -10 - labels
 
-Each plist has the following keywords:
+Each plist has the following fields:
 
  :last_updated
  :cat_id
@@ -174,13 +172,12 @@ Each plist has the following keywords:
 	 address
 	 nil
 	 :op "getFeeds"
-	 :sid session-id
+	 :sid sid
 	 params))
 
-(defun ttrss-get-categories (address session-id &rest params)
-  "Return a vector of plists corresponding to headlines at
-ADDRESS using SESSION-ID credentials. PARAMS is any number of the
-following key-value pairs:
+(defun ttrss-get-categories (address sid &rest params)
+  "Return vector of category plists at ADDRESS using SID.
+PARAMS is any number of the following key-value pairs:
 
  :unread_only    boolean  only return categories which have unread articles
  :enable_nested  boolean  switch to nested mode, only returns topmost categories
@@ -189,13 +186,60 @@ following key-value pairs:
 	 address
 	 nil
 	 :op "getCategories"
-	 :sid session-id
+	 :sid sid
 	 params))
 
-(defun ttrss-get-headlines (address session-id &rest params)
-  "Return a vector of plists corresponding to headlines at
-ADDRESS using SESSION-ID credentials. PARAMS is any number of the
-following key-value pairs:
+(defun ttrss-get-labels (address sid)
+  "Return a vector of label plists at ADDRESS using SID.
+
+Each plist has the following fields:
+
+ :id
+ :caption
+ :fg_color
+ :bg_color
+ :checked"
+  (ttrss-post-request address
+		      nil
+		      :op "getLabels"
+		      :sid sid))
+
+
+;;; Feed manipulation
+
+(defun ttrss-update-feed (address sid feed-id)
+  "Update the feed at ADDRESS using SID with FEED-ID.
+This operation is not performed in the background, so it might
+take considerable time and, potentially, be aborted by the HTTP
+server."
+  (ttrss-post-request address
+		      :status
+		      :op "updateFeed"
+		      :sid sid
+		      :feed_id feed-id))
+
+(defun ttrss-set-article-label
+  (address sid article-ids label-id &optional assign)
+  "Update items at ADDRESS using SID given by ARTICLE-IDS with LABEL-ID.
+Assign labels if ASSIGN is t, remove otherwise.
+
+Returns number of articles updated."
+  (ttrss-post-request address
+		      :updated
+		      :op "setArticleLabel"
+		      :sid sid
+		      :article-ids (mapconcat (lambda (i) (format "%d" i))
+					     article-ids
+					     ",")
+		      :label_id label-id
+		      :assign assign))
+
+
+;;; Article listings
+
+(defun ttrss-get-headlines (address sid &rest params)
+  "Return a vector of headline plists at ADDRESS using SID.
+PARAMS is any number of the following key-value pairs:
 
  :feed_id              integer  only output articles for this feed
  :limit                integer  limits the amount of returned articles
@@ -224,7 +268,7 @@ Special feed IDs are as follows:
 	 address
 	 nil
 	 :op "getHeadlines"
-	 :sid session-id
+	 :sid sid
 	 params))
 
 
