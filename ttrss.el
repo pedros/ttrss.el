@@ -120,16 +120,83 @@ Returns a session id string or nil."
 		      :op "getVersion"
 		      :sid sid))
 
-
-;;; Server statistics
+(defun ttrss-get-config (address sid &optional property)
+  "Return configuration plist of server at ADDRESS using SID.
+Optionally, retrieve PROPERTY only, if it is one of the
+following:
 
-(defun ttrss-get-unread (address session-id)
-  "Return number of unread artibles at ADDRESS using SESSION-ID
-credentials."
+ :icons_dir          path to icons on the server filesystem
+ :icons_url          path to icons when requesting them over http
+ :daemon_is_running  whether update daemon is running
+ :num_feeds          amount of subscribed feeds"
+  (ttrss-post-request address
+		      property
+		      :op "getConfig"
+		      :sid sid))
+
+(defun ttrss-get-pref (address sid property)
+  "Return value, at ADDRESS using SID, given by PROPERTY.
+
+PROPERTY is one of the following fields:
+
+ :allow_duplicate_posts        allow duplicate posts
+ :auto_assign_labels           assign articles to labels automatically
+ :blacklisted_tags             blacklisted tags
+ :cdm_auto_catchup             automatically mark articles as read
+ :cdm_expanded                 automatically expand articles in combined mode
+ :combined_display_mode        combined feed display
+ :confirm_feed_catchup         confirm marking feed as read
+ :default_article_limit        amount of articles to display at once
+ :default_update_interval      default interval between feed updates
+ :digest_catchup               mark articles in e-mail digest as read
+ :digest_enable                enable e-mail digest
+ :digest_preferred_time        try to send digests around specified time
+ :enable_api_access            enable external API
+ :enable_feed_cats             enable feed categories
+ :feeds_sort_by_unread         sort feeds by unread articles count
+ :fresh_article_max_age        maximum age of fresh articles (in hours)
+ :hide_read_feeds              hide feeds with no unread articles
+ :hide_read_shows_special      show special feeds when hiding read feeds
+ :long_date_format             long date format
+ :on_catchup_show_next_feed    on catchup show next feed
+ :purge_old_days               purge articles after this number of days
+ :purge_unread_articles        purge unread articles
+ :reverse_headlines            reverse headline order (oldest first)
+ :short_date_format            short date format
+ :show_content_preview         show content preview in headlines list
+ :sort_headlines_by_feed_date  sort headlines by feed date
+ :ssl_cert_serial              login with an SSL certificate
+ :strip_images                 do not embed images in articles
+ :strip_unsafe_tags            strip unsafe tags from articles
+ :user_css_theme               select theme
+ :user_stylesheet              customize stylesheet
+ :user_timezone                user timezone
+ :vfeed_group_by_feed          group headlines in virtual feeds"
+  (ttrss-post-request address
+		      :value
+		      :op "getPref"
+		      :sid sid
+		      :pref_name property))
+
+(defun ttrss-get-unread (address sid)
+  "Return number of unread articles at ADDRESS using SID."
   (ttrss-post-request address
 		      :unread
 		      :op "getUnread"
-		      :sid session-id))
+		      :sid sid))
+
+
+;;; Feed listings
+
+(defun ttrss-get-counters (address sid)
+  "Return vector of plists of counters at ADDRESS using SID.
+Each plist has may represent a feed, category, label, or tag, and
+has the following fields:
+
+ :counter
+ :id
+
+And the following optional fields:
 
  :has_img
  :updated
@@ -271,7 +338,74 @@ Special feed IDs are as follows:
 	 :sid sid
 	 params))
 
+(defun ttrss-get-article (address sid &rest article-ids)
+  "Return article plist vector from ADDRESS using SID with ARTICLE-IDS.
+
+Returns nil or an empty vector if those ids can't be found.
+
+Each plist has the following fields:
+
+ :attachments
+ :title
+ :labels
+ :published
+ :link
+ :content
+ :id
+ :marked
+ :unread
+ :comments
+ :author
+ :updated
+ :feed_id
+
+The value of :attachments is a vector of plists with the
+following fields:
+
+ :content_type
+ :id
+ :duration
+ :content_url
+ :post_id
+ :title"
+  (when article-ids
+    (ttrss-post-request address
+			nil
+			:op "getArticle"
+			:sid sid
+			:article_id (mapconcat (lambda (i) (format "%d" i))
+					       article-ids
+					       ","))))
+
 
+;;; Article manipulation
+
+(defun ttrss-update-article (address sid &rest params)
+  "Update articles at ADDRESS using SID based on PARAMS.
+
+PARAMS is any number of the following key-value pairs:
+
+ :article_ids  (repeat integer)  article IDs to operate on
+ :mode         integer           0: false, 1: true, 2: toggle
+ :field        integer           0: starred, 1: published, 2: unread, 3: article
+ :data         string            optional data parameter when setting note field
+
+Returns number of articles updated."
+  (apply 'ttrss-post-request
+	 address
+	 nil
+	 :op "updateArticle"
+	 :sid sid
+	 params))
+
+
+
+;;; TODO: Implement following methods:
+;; catchupFeed
+;; shareToPublished
+;; subscribeToFeed
+;; unsubscribeFeed
+;; getFeedTree
 
 (provide 'ttrss)
 ;;; ttrss.el ends here
