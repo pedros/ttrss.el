@@ -145,18 +145,85 @@ possibly, :has_img, :updated, and :kind."
 using SESSION-ID credentials. PARAMS is any number of the
 following key-value pairs:
 
-:cat_id integer
-:unread_only boolean
-:limit integer
-:offset integer
-:include_nested boolean
+ :cat_id          integer  return feeds under category cat_id
+ :unread_only     boolean  only return feeds which have unread articles
+ :limit           integer  limit amount of feeds returned to this value
+ :offset          integer  skip this amount of feeds first
+ :include_nested  boolean  include child categories (as Feed objects with is_cat set)
 
- Each plist has the keywords :last_updated, :cat_id, :order_id,
-:feed_url, :unread, :title, :id, and :icon."
+Special feed IDs are as follows:
+
+ -1  starred
+ -2  published
+ -3  fresh
+ -4  all articles
+  0  archived
+  IDs < -10 - labels
+
+Each plist has the following keywords:
+
+ :last_updated
+ :cat_id
+ :order_id
+ :feed_url
+ :unread
+ :title
+ :id
+ :icon."
   (apply 'nnttrss-post-request
 	 address
 	 nil
 	 :op "getFeeds"
+	 :sid session-id
+	 params))
+
+(defun nnttrss-get-categories (address session-id &rest params)
+  "Return a vector of plists corresponding to headlines at
+ADDRESS using SESSION-ID credentials. PARAMS is any number of the
+following key-value pairs:
+
+ :unread_only    boolean  only return categories which have unread articles
+ :enable_nested  boolean  switch to nested mode, only returns topmost categories
+ :include_empty  boolean  include empty categories"
+  (apply 'nnttrss-post-request
+	 address
+	 nil
+	 :op "getCategories"
+	 :sid session-id
+	 params))
+
+(defun nnttrss-get-headlines (address session-id &rest params)
+  "Return a vector of plists corresponding to headlines at
+ADDRESS using SESSION-ID credentials. PARAMS is any number of the
+following key-value pairs:
+
+ :feed_id              integer  only output articles for this feed
+ :limit                integer  limits the amount of returned articles
+ :skip                 integer  skip this amount of feeds first
+ :filter               string   currently unused
+ :is_cat               boolean  requested feed_id is a category
+ :show_excerpt         boolean  include article excerpt in the output
+ :show_content         boolean  include full article text in the output
+ :view_mode            string   all_articles, unread, adaptive, marked, updated
+ :include_attachments  boolean  include article attachments
+ :since_id             integer  articles with id greater than since_id
+ :include_nested       boolean  include articles from child categories
+ :search               string   search query
+ :search_mode          string
+ :match_on             string
+
+Special feed IDs are as follows:
+
+ -1  starred
+ -2  published
+ -3  fresh
+ -4  all articles
+  0  archived
+ IDs < -10 - labels"
+  (apply 'nnttrss-post-request
+	 address
+	 nil
+	 :op "getHeadlines"
 	 :sid session-id
 	 params))
 
