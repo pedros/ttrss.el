@@ -601,20 +601,29 @@ following key-value pairs:
 
 
 ;;; TODO: Implement following methods:
-;; catchupFeed
-;; shareToPublished
 ;; subscribeToFeed
 ;; unsubscribeFeed
 ;; getFeedTree
 
 (defun ttrss-catchup-feed (address sid feed-id)
-  "Try to catchup feed at ADDRESS using SID with FEED-ID.
+  "Catchup, at ADDRESS using SID, FEED-ID.
 Returns a status string (typically 'OK')."
   (ttrss-post-request address
 		      :status
 		      :op "catchupFeed"
 		      :sid sid
 		      :feed_id feed-id))
+
+(defun ttrss-share-to-published (address sid title url content)
+  "Publish, at ADDRESS using SID, an article with TITLE,  URL, and CONTENT
+Returns a status string (typically 'OK')."
+  (ttrss-post-request address
+		      :status
+		      :op "shareToPublished"
+		      :sid sid
+		      :title title
+		      :url url
+		      :content content))
 
 (provide 'ttrss)
 ;;; ttrss.el ends here
