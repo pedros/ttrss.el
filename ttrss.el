@@ -601,7 +601,6 @@ following key-value pairs:
 
 
 ;;; TODO: Implement following methods:
-;; subscribeToFeed
 ;; unsubscribeFeed
 ;; getFeedTree
 
@@ -624,6 +623,29 @@ Returns a status string (typically 'OK')."
 		      :title title
 		      :url url
 		      :content content))
+
+(defun ttrss-subscribe-to-feed (address sid feed-url &rest params)
+  "Subscribe, at ADDRESS using SID, to FEED-URL with PARAMS.
+Returns 0 if the feed already exists, 1 if successfully added,
+and nil otherwise.  PARAMS is any number of the following
+key-value pairs:
+
+'category-id'
+    Category ID to place feed into (integer. defaults to 0: Uncategorized)
+
+'login'
+    Username to use for basic HTTP authentication at FEED-URL.
+
+'password'
+    Password to use for basic HTTP authentication at FEED-URL."
+  (plist-get (apply 'ttrss-post-request
+	      address
+	      :status
+	      :op "subscribeToFeed"
+	      :sid sid
+	      :feed_url feed-url
+	      params)
+	     :code))
 
 (provide 'ttrss)
 ;;; ttrss.el ends here
