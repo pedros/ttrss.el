@@ -429,8 +429,8 @@ Returns number of articles updated."
 		      :op "setArticleLabel"
 		      :sid sid
 		      :article-ids (mapconcat (lambda (i) (format "%d" i))
-					     article-ids
-					     ",")
+					      article-ids
+					      ",")
 		      :label_id label-id
 		      :assign assign))
 
@@ -484,13 +484,13 @@ PARAMS is any number of the following key-value pairs:
 
 'order_by'
     Override default sort order: 'date_reverse' or 'feed_dates' (string).
-    
+
 'search'
     Search query (string).
 
 'search_mode'
     (string).
-    
+
 'match_on'
     (string)."
   (apply 'ttrss-post-request
@@ -601,7 +601,6 @@ following key-value pairs:
 
 
 ;;; TODO: Implement following methods:
-;; unsubscribeFeed
 ;; getFeedTree
 
 (defun ttrss-catchup-feed (address sid feed-id)
@@ -639,13 +638,21 @@ key-value pairs:
 'password'
     Password to use for basic HTTP authentication at FEED-URL."
   (plist-get (apply 'ttrss-post-request
-	      address
-	      :status
-	      :op "subscribeToFeed"
-	      :sid sid
-	      :feed_url feed-url
-	      params)
+		    address
+		    :status
+		    :op "subscribeToFeed"
+		    :sid sid
+		    :feed_url feed-url
+		    params)
 	     :code))
+
+(defun ttrss-unsubscribe-feed (address sid feed-id)
+  "Unsubscribe, at ADDRESS using SID, from FEED-ID."
+  (ttrss-post-request address
+		      :status
+		      :op "unsubscribeFeed"
+		      :sid sid
+		      :feed_id feed-id))
 
 (provide 'ttrss)
 ;;; ttrss.el ends here
