@@ -76,22 +76,38 @@ Returns the JSON response as a property list (or, optionally, the
 PROPERTY in the property list) if the response status is 0, nil
 otherwise."
   (let ((url-request-method "POST")
-	(url-request-data (json-encode content))
-	(json-object-type 'plist)
+	(url-request-data (json-encode content)))
+    (with-current-buffer (url-retrieve-synchronously address)
+      (ttrss-parse-request nil property))))
+
+(defun ttrss-post-request-asynchronously (address &rest content)
+  "Asynchronously post to ADDRESS the key-value pairs CONTENT.
+Like 'ttrss-post-request', but perform request asynchronously
+with 'ttrss-parse-request' as a callback."
+  (let ((url-request-method "POST")
+	(url-request-data (json-encode content)))
+    (url-retrieve address 'ttrss-parse-request)))
+
+(defun ttrss-parse-request (url-status &rest property)
+  "Parse a url response buffer with URL-STATUS.
+Return a property list of the response, or, optionally, the
+PROPERTY value of said property list."
+  (let ((json-object-type 'plist)
 	(json-array-type 'list)
 	(json-false nil))
-    (with-current-buffer (url-retrieve-synchronously address)
-      (goto-char (point-min))
-      (search-forward-regexp "\n\n")
-      (let* ((response (json-read))
-	     (status (plist-get response :status))
-	     (content (plist-get response :content)))
-	(if (= status 1)
-	    (user-error "API status error: %s"
-			(mapconcat 'downcase
-				   (split-string (plist-get content :error) "_")
-				   " "))
-	  (or (plist-get content property) content))))))
+    (goto-char (point-min))
+    (search-forward-regexp "\n\n")
+    (let* ((response (json-read))
+	   (ttrss-status (plist-get response :status))
+	   (content (plist-get response :content)))
+      (if (= ttrss-status 1)
+	  (user-error "API status error: %s"
+		      (mapconcat 'downcase
+				 (split-string (plist-get content :error) "_")
+				 " "))
+	(let ((value (or (plist-get content (car property)) content)))
+	  (message "API status OK")
+	  value)))))
 
 
 ;;; Session management
@@ -263,7 +279,7 @@ PREFERENCE must be one of the following strings:
 		      :value
 		      :op "getPref"
 		      :sid sid
-		      :pref_name property))
+		      :pref_name preference))
 
 (defun ttrss-get-unread (address sid)
   "Return number of unread articles at ADDRESS using SID."
@@ -380,9 +396,8 @@ PARAMS is any number of the following key-value pairs:
 
 (defun ttrss-get-labels (address sid &optional article-id)
   "Return a list of label property lists at ADDRESS using SID.
-Optionally, checks whether ARTICLE-ID has been set to any of the labels.
-
-The property list's members are:
+Optionally, checks whether ARTICLE-ID has been set to any of the
+labels.  The property list's members are:
 
 'id'
     Label ID.  Note that this is an internal database ID of the label
@@ -408,22 +423,22 @@ The property list's members are:
 ;;; Feed manipulation
 
 (defun ttrss-update-feed (address sid feed-id)
-  "Update the feed at ADDRESS using SID with FEED-ID.
-This operation is not performed in the background, so it might
-take considerable time and, potentially, be aborted by the HTTP
-server."
-  (ttrss-post-request address
-		      :status
-		      :op "updateFeed"
-		      :sid sid
-		      :feed_id feed-id))
+  "Ask server at ADDRESS using SID to update FEED-ID.
+This operation is not performed in the background by the server,
+so it might take considerable time and, potentially, be aborted
+by the HTTP server.  Therefore, this function performs the
+request asynchronously.  A message is printed in the mini-buffer
+area when the request completes."
+  (ttrss-post-request-asynchronously address
+				     :op "updateFeed"
+				     :sid sid
+				     :feed_id feed-id))
 
-(defun ttrss-set-article-label
-  (address sid article-ids label-id &optional assign)
-  "Update items at ADDRESS using SID given by ARTICLE-IDS with LABEL-ID.
-Assign labels if ASSIGN is t, remove otherwise.
-
-Returns number of articles updated."
+(defun ttrss-set-article-label (address sid article-ids label-id
+					&optional assign)
+  "Update, at ADDRESS using SID, ARTICLE-IDS with LABEL-ID.
+Assign labels if ASSIGN is t, remove otherwise.  Returns number
+of articles updated."
   (ttrss-post-request address
 		      :updated
 		      :op "setArticleLabel"
@@ -450,7 +465,7 @@ PARAMS is any number of the following key-value pairs:
     -2: Published
     -3: Fresh
     -4: All articles
-   (-10, -∞): Labels
+    less than -10: Labels
 
 'limit'
     Limits the amount of returned articles (integer).
@@ -574,14 +589,10 @@ property list's members are:
 
 ;;; Article manipulation
 
-(defun ttrss-update-article (address sid &rest params)
-  "Update articles at ADDRESS using SID based on PARAMS.
+(defun ttrss-update-article (address sid article-ids &rest params)
+  "Update, at ADDRESS using SID, ARTICLE-IDS based on PARAMS.
 Returns number of articles updated.  PARAMS is any number of the
 following key-value pairs:
-
-'article_ids'
-    Article IDs to operate on.  Either a single integer
-    or a string of comma-separated IDs.
 
 'mode'
     0: false, 1: true, 2: toggle.
@@ -596,12 +607,10 @@ following key-value pairs:
 	 nil
 	 :op "updateArticle"
 	 :sid sid
+	 :article_ids article-ids
 	 params))
 
-
 
-;;; TODO: Implement following methods:
-;; getFeedTree
 
 (defun ttrss-catchup-feed (address sid feed-id)
   "Catchup, at ADDRESS using SID, FEED-ID.
@@ -613,7 +622,7 @@ Returns a status string (typically 'OK')."
 		      :feed_id feed-id))
 
 (defun ttrss-share-to-published (address sid title url content)
-  "Publish, at ADDRESS using SID, an article with TITLE,  URL, and CONTENT
+  "Publish, at ADDRESS using SID, an article with TITLE,  URL, and CONTENT.
 Returns a status string (typically 'OK')."
   (ttrss-post-request address
 		      :status
@@ -630,7 +639,7 @@ and nil otherwise.  PARAMS is any number of the following
 key-value pairs:
 
 'category-id'
-    Category ID to place feed into (integer. defaults to 0: Uncategorized)
+    Category ID to place feed into (defaults to 0: Uncategorized)
 
 'login'
     Username to use for basic HTTP authentication at FEED-URL.
@@ -653,6 +662,15 @@ key-value pairs:
 		      :op "unsubscribeFeed"
 		      :sid sid
 		      :feed_id feed-id))
+
+(defun ttrss-get-feed-tree (address sid &optional include-empty)
+  "Return, at ADDRESS using SID, full tree of categories and feeds.
+Optionally INCLUDE-EMPTY categories."
+  (ttrss-post-request address
+		      nil
+		      :op "getFeedTree"
+		      :sid sid
+		      :include_empty include-empty))
 
 (provide 'ttrss)
 ;;; ttrss.el ends here
