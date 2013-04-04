@@ -32,14 +32,28 @@
   (autoload 'json-read "json")
   (autoload 'json-encode "json"))
 
-(defvar ttrss-address nil
-  "Address of the tt-rss server.")
+(defgroup ttrss nil
+  "Tiny Tiny RSS elisp bindings"
+  :group 'external
+  :group 'communication
+  :link '(url-link :tag "Tiny Tiny RSS"
+		   "http://tt-rss.org/redmine/projects/tt-rss/wiki"))
 
-(defvar ttrss-user nil
-  "Username to use for authentication to the tt-rss server.")
+(defcustom ttrss-address "http://localhost"
+  "Address of the tt-rss server."
+  :type 'string
+  :group 'ttrss
+  :link '(info-link "(url)http/https"))
 
-(defvar ttrss-password nil
-  "Password to use for authentication to the tt-rss server.")
+(defcustom ttrss-user ""
+  "Username to use for authentication to the tt-rss server."
+  :type 'string
+  :group 'ttrss)
+
+(defcustom ttrss-password ""
+  "Password to use for authentication to the tt-rss server."
+  :type 'string
+  :group 'ttrss)
 
 (defvar ttrss-session-id nil
   "Current session id, if any, set after successful login.")
