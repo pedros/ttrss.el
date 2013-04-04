@@ -72,11 +72,13 @@
 CONTENT must be a data structure that `json-encode' knows how to
 encode as a JSON object.
 
-Returns the JSON response as a plist or, optionally, the PROPERTY
-in the plist, if the response status is 0, nil otherwise."
+Returns the JSON response as a property list (or, optionally, the
+PROPERTY in the property list) if the response status is 0, nil
+otherwise."
   (let ((url-request-method "POST")
 	(url-request-data (json-encode content))
 	(json-object-type 'plist)
+	(json-array-type 'list)
 	(json-false nil))
     (with-current-buffer (url-retrieve-synchronously address)
       (goto-char (point-min))
