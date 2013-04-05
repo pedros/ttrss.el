@@ -139,14 +139,14 @@ Returns a status string (typically 'OK')."
 
 ;;; Server statistics
 
-(defun ttrss-api-level (address sid)
+(defun ttrss-get-api-level (address sid)
   "Return the API level at ADDRESS using SID."
   (ttrss-post-request address
 		      :level
 		      :op "getApiLevel"
 		      :sid sid))
 
-(defun ttrss-server-version (address sid)
+(defun ttrss-get-version (address sid)
   "Return the server version at ADDRESS using SID."
   (ttrss-post-request address
 		      :version
