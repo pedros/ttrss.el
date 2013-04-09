@@ -86,7 +86,7 @@
 ;; * Interactive versions of the methods employing global state:
 ;;   You'll note that there are, in fact, a number of variables defined
 ;;   at the top-level, namely 'ttrss-address', 'ttrss-user',
-;;   'ttrss-password', 'ttrss-session-id', 'ttrss-api-level', and
+;;   'ttrss-password', 'ttrss-sid', 'ttrss-api-level', and
 ;;   'ttrss-server-version'. These are defined in anticipation of the
 ;;   next release, in which I plan to introduce interactive counterparts
 ;;   of most methods that do employ global state.
@@ -131,7 +131,7 @@
   :type 'string
   :group 'ttrss)
 
-(defvar ttrss-session-id nil
+(defvar ttrss-sid nil
   "Current session id, if any, set after successful login.")
 
 (defvar ttrss-api-level nil
