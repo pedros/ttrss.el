@@ -72,6 +72,9 @@
 The properties are group name strings.  Values are association
 lists of SQL IDs to article numbers.")
 
+(defvar nnttrss--feeds nil
+  "List of all feed property lists.")
+
 (deffoo nnttrss-open-server (server &optional defs)
   (if (nnttrss-server-opened server)
       t
@@ -91,31 +94,108 @@ lists of SQL IDs to article numbers.")
 (deffoo nnttrss-server-opened (&optional server)
   (and nnttrss--sid (ttrss-logged-in-p nnttrss-address nnttrss--sid)))
 
+(deffoo nnttrss-request-list (&optional server)
+  (with-current-buffer nntp-server-buffer
+    (erase-buffer)
+    (nnttrss--update-feeds)
+    (nnttrss--write-feeds)
+    (dolist (feed nnttrss--feeds)
+      (let* ((title (plist-get feed :title))
+	     (id (plist-get feed :id))
+	     (article-ids (nnttrss--feed-articles id)))
+	(if article-ids
+	    (insert (format "\"%s\" %d %d y\n"
+			    title
+			    (apply 'max article-ids)
+			    (apply 'min article-ids)))
+	  (insert (format "\"%s\" 0 1 y\n" title)))))
+    t))
+
+
+(defun nnttrss--read-vars (&rest vars)
+  "Read VARS from local file in 'nnttrss-directory'.
+Sets the variables VARS'."
+  (dolist (var vars)
+    (setf (symbol-value var) nil)
+    (let* ((name (symbol-name var))
+	   (file (nnttrss-make-filename name))
+	   (file-name-coding-system nnmail-pathname-coding-system))
+      (when (file-exists-p file)
+	(load file nil t t)))))
+
+(defun nnttrss--write-vars (&rest vars)
+  "Write VARS from memory to local file in 'nnttrss-directory'.
+Assumes the variables VARS are set."
+  (gnus-make-directory nnttrss-directory)
+  (dolist (var vars)
+    (let* ((name (symbol-name var))
+	   (file (nnttrss-make-filename name))
+	   (file-name-coding-system nnmail-pathname-coding-system)
+	   (coding-system-for-write mm-universal-coding-system))
+      (with-temp-file (nnttrss-make-filename name)
+	(insert (format ";; -*- coding: %s; -*-\n"
+			mm-universal-coding-system))
+	(gnus-prin1 `(setq ,var ',(symbol-value var)))
+	(insert "\n")))))
+
+(defun nnttrss-make-filename (name)
+  "Build filename based on NAME in 'nnttrss-directory'."
+  (expand-file-name
+   (nnrss-translate-file-chars
+    (concat name ".el"))
+   nnttrss-directory))
+
+(defun nnttrss--feed-articles (feed-id)
+  "Return list of article numbers corresponding to article IDs in FEED-ID."
+  (let ((feed-article-map (plist-get nnttrss--article-map feed-id)))
+    (mapcar (lambda (x) (cdr x)) feed-article-map)))
+
+(defun nnttrss--read-feeds ()
+  "Read feeds file in 'nnttrss-directory'.
+Sets the variable 'nnttrss--feeds."
+  (nnttrss--read-vars 'nnttrss--feeds))
+
+(defun nnttrss--write-feeds ()
+  "Write feeds from memory to local file in 'nnttrss-directory'.
+Assumes the variable 'nnttrss--feeds' is set."
+  (nnttrss--write-vars 'nnttrss-feeds))
+
+(defun nnttrss--update-feeds ()
+  "Update 'nnttrss--feeds'."
+  (setq nnttrss--feeds (ttrss-get-feeds nnttrss-address
+					nnttrss--sid
+					:feed_id -4)))
+
 (defun nnttrss--read-article-map ()
   "Read articles mapping file in 'nnttrss-directory'.
 Sets the variable 'nnttrss--article-map."
-  (setq nnttrss-article-map nil)
-  (let ((file (nnttrss-make-filename "nnttrss" "article-map"))
-	(file-name-coding-system nnmail-pathname-coding-system))
-    (when (file-exists-p file)
-      (load file nil t t))))
+  (nnttrss--read-vars 'nnttrss--article-map))
+
+(defun nnttrss--write-article-map ()
+  "Write article map from memory to local file in 'nnttrss-directory'.
+Assumes the variable 'nnttrss--article-map' is set."
+  (nnttrss--write-vars 'nnttrss--article-map))
+
+(defun nnttrss--update-single-article-map (article-id group)
+  "Add ARTICLE-ID in GROUP to 'nnttrss--article-map'."
+  (if (not (plist-member nnttrss--article-map group))
+      (setq nnttrss--article-map
+	    (plist-put nnttrss--article-map group `((,article-id . 1))))
+    (let ((mapping (plist-get nnttrss--article-map group)))
+      (unless (assoc article-id mapping)
+	(let* ((last-artno (cdar mapping))
+	       (next-artno (+ 1 (or last-artno 0)))
+	       (mapping (cons `(,article-id . ,next-artno) mapping)))
+	  (setq nnttrss--article-map
+		(plist-put nnttrss--article-map group mapping))))))  )
 
 (defun nnttrss--update-article-map ()
   "Update 'nnttrss--article-map' with new articles in 'nnttrss--headlines'."
   (dolist (headline nnttrss--headlines)
     (let* ((article-id (plist-get headline :id))
 	   (group (plist-get headline :feed_id)))
-      (if (> article-id nnttrss--last-article-id)
-	  (if (not (plist-member nnttrss--article-map group))
-	      (setq nnttrss--article-map
-		    (plist-put nnttrss--article-map group `((,article-id . 1))))
-	    (let ((mapping (plist-get nnttrss--article-map group)))
-	      (unless (assoc article-id mapping)
-		(let* ((last-artno (cdar mapping))
-		       (next-artno (+ 1 (or last-artno 0)))
-		       (mapping (cons `(,article-id . ,next-artno) mapping)))
-		  (setq nnttrss--article-map
-			(plist-put nnttrss--article-map group mapping))))))))))
+      (when (> article-id nnttrss--last-article-id)
+	(nnttrss--update-single-article-map article-id group)))))
 
 (defun nnttrss--get-article-number (article-id group)
   "Return article number corresponding to ARTICLE-ID in GROUP.
@@ -129,109 +209,30 @@ Note that ARTICLE-ID is an internal SQL identifier obtained from the API.
 ARTICLE-NUMBER is the Gnus identifier."
   (car (rassoc article-number (plist-get nnttrss--article-map group))))
 
-(defun nnttrss--write-article-map ()
-  "Write article map from memory to local file in 'nnttrss-directory'.
-Assumes the variable 'nnttrss--article-map' is set."
-  (gnus-make-directory nnttrss-directory)
-  (let ((coding-system-for-write mm-universal-coding-system)
-	(file-name-coding-system nnmail-pathname-coding-system))
-    (with-temp-file (nnrss-make-filename "nnttrss" "article-map")
-      (insert (format ";; -*- coding: %s; -*-\n"
-		      mm-universal-coding-system))
-      (gnus-prin1 `(setq nnttrss--article-map ,nnttrss--article-map)))))
-
 (defun nnttrss--read-headlines ()
   "Read headlines from local file in 'nnttrss-directory'.
 Sets the variables 'nnttrss--headlines' and 'nnttrss--last-article-id'."
-  (setq nnttrss--headlines nil
-	nnttrss--last-article-id nil)
-  (let ((file (nnttrss-make-filename "nnttrss" "headlines"))
-	(file-name-coding-system nnmail-pathname-coding-system))
-    (when (file-exists-p file)
-      (load file nil t t))))
-
-(defun nnttrss--update-headlines ()
-  "Update 'nnttrss--headlines' since 'nnttrss--last-article-id'."
-  (setq nnttrss--headlines (append nnttrss--headlines
-				  (ttrss-get-headlines
-				   nnttrss-address
-				   nnttrss--sid
-				   :feed_id -4
-				   :limit -1
-				   :since_id nnttrss--last-article-id)))
-  (setq nnttrss--last-article-id (apply 'max (mapcar (lambda (x) (plist-get x :id))
-						    nnttrss--headlines))))
+  (nnttrss--read-vars 'nnttrss--headlines 'nnttrss--last-article-id))
 
 (defun nnttrss--write-headlines ()
   "Write headlines from memory to local file in 'nnttrss-directory'.
 Assumes the variables 'nnttrss--headlines' and 'nnttrss--last-article-id' are set."
-  (gnus-make-directory nnttrss-directory)
-  (let ((coding-system-for-write mm-universal-coding-system)
-	(file-name-coding-system nnmail-pathname-coding-system))
-    (with-temp-file (nnrss-make-filename "nnttrss" "headlines")
-      (insert (format ";; -*- coding: %s; -*-\n"
-		      mm-universal-coding-system))
-      (gnus-prin1 `(setq nnttrss--headlines ',nnttrss--headlines))
-      (insert "\n")
-      (gnus-prin1 `(setq nnttrss--last-article-id ',nnttrss--last-article-id)))))
+  (nnttrss--write-vars 'nnttrss--headlines 'nnttrss--last-article-id))
 
-
-(defun nnttrss-make-filename (name server)
-  "Build filename composed of NAME and SERVER in 'nnttrss-directory'."
-  (expand-file-name
-   (nnrss-translate-file-chars
-    (concat name
-	    (and server
-		 (not (equal server ""))
-		 "-")
-	    server
-	    ".el"))
-   nnttrss-directory))
-
-
-(defun nnttrss-feed-articles (feed-id)
-  "Return list of article IDS for FEED-ID."
-  (let* ((article-ids (mapcar (lambda (article) (plist-get article :id))
-			      (ttrss-get-headlines nnttrss-address
-						   nnttrss--sid
-						   :feed_id feed-id
-						   :limit -1))))
-    (if article-ids
-	(let ((lowest (apply 'min article-ids)))
-	  (mapcar (lambda (i) (- i (- 1 lowest))) article-ids)))))
-
-;; TODO: SQL IDs are poor article numbers;
-;; need to map these to something local
-(deffoo nnttrss-request-list (&optional server)
-  (with-current-buffer nntp-server-buffer
-    (erase-buffer)
-    (dolist (feed (ttrss-get-feeds nnttrss-address
-				   nnttrss--sid
-				   :feed_id -4))
-      (let* ((title (plist-get feed :title))
-	     (id (plist-get feed :id))
-	     (article-ids (nnttrss-feed-articles id)))
-	(if article-ids
-	    (insert (format "\"%s\" %d %d y\n"
-			    title
-			    (apply 'max article-ids)
-			    (apply 'min article-ids)))
-	  (insert (format "\"%s\" 0 1 y\n" title)))))
-    t))
+(defun nnttrss--update-headlines ()
+  "Update 'nnttrss--headlines' since 'nnttrss--last-article-id'."
+  (setq nnttrss--headlines (append nnttrss--headlines
+				   (ttrss-get-headlines
+				    nnttrss-address
+				    nnttrss--sid
+				    :feed_id -4
+				    :limit -1
+				    :since_id nnttrss--last-article-id)))
+  (setq nnttrss--last-article-id (apply 'max (mapcar (lambda (x) (plist-get x :id))
+						     nnttrss--headlines))))
 
 (deffoo nnttrss-status-message (&optional server)
   nnttrss-status-string)
-
-;; (defmacro ttrss (func &rest args)
-;;   `(,(intern (concat "ttrss-" (symbol-name func)))
-;;     ,nnttrss-address
-;;     ,nnttrss--sid
-;;     ,@args))
-
-;; (macroexpand '(ttrss get-feeds :feed_id 31))
-;; (ttrss get-feeds :feed_id 31)
-
-(nnoo-import (nnrss nnrss-make-filename))
 
 (provide 'nnttrss)
 ;;; nnttrss.el ends here
